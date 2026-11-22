@@ -1,0 +1,941 @@
+<!doctype html>
+<!-- =============================================================================
+     Rhythm Trainer
+     Copyright (c) 2026 Proximity Software Factory LLC. All rights reserved.
+
+     This file is part of Rhythm Trainer. Proprietary and confidential.
+     Unauthorized copying, modification, or distribution is strictly prohibited.
+     See LICENSE for details.
+     ============================================================================= -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rhythm Trainer</title>
+<link rel="stylesheet" href="lime-fonts.css">
+<style>
+:root {
+  /* Lime palette; always dark */
+  color-scheme: dark;
+  --bg: #0b0c0a; --surface: #131512; --surface2: #1b1e19; --line: #2d312b; --text: #f4f0e0; --muted: #a8aca2;
+  --violet: #c2f36b; --violet-soft: #50632f; --coral: #e2907c; --coral-soft: #5b4037;
+  --good: #c2f36b; --good-soft: #2f3b20; --bad: #e8605a; --bad-soft: #5e2f2b;
+  --sharp: #5fccc2; --flat: #e3a56c; --below: #75c4ec; --above: #f3a461; --on-fill: #0b0c0a;
+  --face-display: "Archivo Expanded", system-ui, sans-serif;
+  --face-body: "Manrope", system-ui, sans-serif;
+  --face-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+input { accent-color: var(--violet); }
+body { margin: 0; background: var(--bg); color: var(--text); font: 500 15px/1.4 var(--face-body); }
+h1 { font: 700 20px/1.2 var(--face-display); margin: 0; }
+h2 { font: 700 15px/1.3 var(--face-display); margin: 0 0 8px; }
+.caption { font-size: 12px; color: var(--muted); }
+.headphones { margin: 4px 0 10px; max-width: 420px; }
+button, select { font: inherit; color: inherit; }
+button { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--violet); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+button[aria-pressed="true"], .chip[aria-pressed="true"] { background: var(--violet); color: var(--on-fill); border-color: var(--violet); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--coral); border-color: var(--coral); color: var(--on-fill); }
+select { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+
+header.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 2; }
+header.top h1 { margin-right: 12px; }
+header.top .spacer { flex: 1; }
+.note-stateless { font-size: 12px; color: var(--muted); }
+
+main { display: grid; gap: 16px; padding: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); }
+@media (max-width: 1100px) { main { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.strip-row { grid-column: 1 / -1; }
+
+/* Stage */
+.stage-top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+@media (max-width: 700px) { .stage-top { grid-template-columns: 1fr; } }
+.timing-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.link { background: none; border: none; color: var(--violet); padding: 0; text-decoration: underline; }
+.timing-lines { margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.timing-lines li { padding: 1px 0; }
+.warn { color: var(--bad); font-weight: 600; }
+svg.strip { width: 100%; max-width: 440px; height: auto; display: block; margin-top: 8px; }
+.latency { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; flex-wrap: wrap; }
+.latency input[type=range] { flex: 1; min-width: 120px; }
+
+.tempo { display: flex; gap: 12px; align-items: center; }
+.meter { display: inline-flex; flex-direction: column; align-items: center; line-height: 0.95; font-weight: 700; font-variant-numeric: tabular-nums; }
+.meter.big { font-size: 30px; padding: 6px 10px; }
+.meter.small { font-size: 13px; }
+.meter span + span { border-top: 0; }
+.dial { flex: 1; text-align: center; user-select: none; touch-action: none; cursor: ew-resize; }
+.dial .bpm { font-family: var(--face-mono); font-size: 56px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1; }
+.dial .row { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+.clicks-box { margin-top: 12px; border: 2px solid var(--line); border-radius: 12px; padding: 10px; transition: background .15s, border-color .15s; }
+.clicks-box.hit { border-color: var(--good); background: var(--good-soft); }
+.streak { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; min-height: 20px; }
+.streak b { color: var(--coral); letter-spacing: .04em; display: inline-block; transition: transform .15s; }
+.streak b.pop { transform: scale(1.12); }
+.ball-lane { position: relative; height: 34px; margin: 6px 0; border-bottom: 1px solid var(--line); }
+.ball { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--violet); left: 0; bottom: 0; }
+.ball.flash { background: var(--coral); }
+.dots { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; margin-top: 6px; }
+.dot { aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--muted); max-width: 12px; }
+.dot.rest { border-style: dotted; opacity: .6; }
+.dot.lit { background: var(--violet); border-color: var(--violet); }
+.dot.hitbeat { background: var(--good); border-color: var(--good); }
+.clicks-cap { font-size: 13px; margin-top: 6px; min-height: 18px; }
+
+.odometer { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.wheels { display: flex; gap: 3px; }
+.wheel { width: 26px; height: 36px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--face-mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.wheel.lead { color: var(--muted); opacity: .5; }
+.hold { position: relative; overflow: hidden; }
+.hold .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--coral-soft); z-index: 0; }
+.hold span { position: relative; }
+
+.values { display: flex; gap: 6px; margin-top: 10px; }
+.values .tile { flex: 1 1 0; min-width: 0; }
+.tile { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; min-height: 60px; }
+.tile .g { height: 44px; display: flex; align-items: center; }
+.tile .t { font-size: 11px; }
+.why { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+.source-head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.builder-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tile-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.tiles-label { font-size: 12px; color: var(--muted); flex: 0 0 44px; }
+.tiles { display: flex; gap: 6px; flex: 1; min-width: 0; }
+.tiles button { flex: 1 1 0; min-width: 0; padding: 2px 0; min-height: 54px; display: flex; justify-content: center; align-items: center; }
+.tiles button svg { max-width: 100%; }
+.msg { font-size: 13px; margin-top: 8px; min-height: 18px; color: var(--bad); }
+
+/* Tuner */
+.tuner { transition: background .15s, border-color .15s; border-width: 2px; }
+.tuner.intune { background: var(--good-soft); border-color: var(--good); }
+.tuner .name { font-size: 72px; font-weight: 700; text-align: center; line-height: 1.05; min-height: 76px; }
+.tuner .name sub { font-size: 28px; font-weight: 600; vertical-align: baseline; }
+.tuner .cents { text-align: center; font-size: 18px; min-height: 26px; }
+.tuner .cents.ok { color: var(--good); font-weight: 700; }
+.tuner svg { width: 100%; height: auto; display: block; }
+.row-gap { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.toggle { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.level { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.level i { display: block; height: 100%; width: 0; background: var(--violet); }
+
+/* Bar strip */
+.bar-strip { display: flex; gap: 10px; align-items: stretch; overflow-x: auto; }
+.bar-cell { flex: 1 1 0; min-width: 200px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.bar-cell.after { flex: 0 0 176px; min-width: 176px; border-style: dashed; }
+.bar-cell .lbl { font-size: 12px; color: var(--muted); }
+.notes { display: flex; gap: 2px; align-items: center; min-height: 52px; flex-wrap: wrap; }
+.notes .e { display: inline-flex; }
+.notes .e { padding: 0 3px; border-radius: 6px; }
+.notes .e.rest { opacity: .7; }
+.notes .e.now { background: var(--violet-soft); outline: 2px solid var(--violet); }
+.notes .e.auto { opacity: .4; }
+.gauge-line { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header class="top" role="toolbar" aria-label="Rhythm Trainer controls">
+  <h1>Rhythm Trainer</h1>
+  <button id="btnClicks" aria-pressed="true">Clicks on</button>
+  <button id="btnBall" aria-pressed="true">Ball moving</button>
+  <button id="btnTunerStill" aria-pressed="false">Tuner moving</button>
+  <button id="btnPhones" aria-pressed="false" title="With headphones the microphone does not hear the clicks, so no onset is taken as a click">Speakers</button>
+  <span class="spacer"></span>
+  <button id="btnMetro" class="primary">Start metronome</button>
+  <button id="btnListen">Start listening</button>
+  <span class="note-stateless">Nothing is saved: closing the tab clears every setting and count.</span>
+</header>
+
+<main>
+  <div class="col col-stage">
+    <section class="card" aria-label="Stage">
+      <div class="stage-top">
+        <div>
+          <div class="timing-head">
+            <h2>Play along with the clicks</h2>
+            <button class="link" id="btnCalib">Calibrate…</button>
+          </div>
+          <p class="caption headphones">Headphones recommended. Through speakers the microphone hears the click too, and a note played right on the click can be missed or counted twice.</p>
+          <div class="caption">Hit window</div>
+          <div class="chips" id="hitTol"></div>
+          <svg class="strip" id="timingStrip" viewBox="0 0 400 180" role="img" aria-label="Where each note landed, newest bar at the top"></svg>
+          <ul class="timing-lines" id="timingLines"></ul>
+          <div class="latency">
+            <label for="latency">Latency</label>
+            <input type="range" id="latency" min="-150" max="400" step="1" value="0">
+            <span id="latencyText">0 ms</span>
+          </div>
+          <div class="caption" id="calibText"></div>
+        </div>
+        <div>
+          <div class="tempo">
+            <div class="meter big" id="meterBig" aria-hidden="true"><span>4</span><span>4</span></div>
+            <div class="dial" id="dial" aria-label="Tempo" role="group">
+              <div class="bpm" id="bpm">96</div>
+              <div class="caption">BPM</div>
+              <div class="row">
+                <button id="slower" aria-label="Slower">−1</button>
+                <button id="faster" aria-label="Faster">+1</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption" style="margin-top:8px">Time signature</div>
+          <div class="chips" id="meters"></div>
+          <div class="clicks-box" id="clicksBox">
+            <div class="streak" id="streak"></div>
+            <div class="ball-lane"><div class="ball" id="ball"></div></div>
+            <div class="dots" id="dots"></div>
+            <div class="clicks-cap" id="clicksCap">Listening for your notes</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Note odometer">
+      <div class="odometer">
+        <div class="wheels" id="wheels" aria-hidden="true"></div>
+        <div>
+          <div id="odoSince" class="caption"></div>
+          <div id="odoTotal" class="caption"></div>
+          <div class="sr" id="odoSr" aria-live="polite"></div>
+        </div>
+        <span class="spacer" style="flex:1"></span>
+        <button class="hold" id="odoReset"><span class="fill"></span><span id="odoResetText">Reset</span></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="col col-tuner">
+    <section class="card tuner" id="tuner" aria-label="Tuner">
+      <div class="name" id="tName" aria-live="off">—</div>
+      <div class="cents" id="tCents">Listening</div>
+      <svg id="gauge" viewBox="-20 0 340 170" role="img" aria-label="Tuning gauge"></svg>
+      <div class="caption" id="tStillCap"></div>
+      <div class="row-gap">
+        <div class="level" aria-hidden="true"><i id="levelBar"></i></div>
+        <label class="toggle"><input type="checkbox" id="gate" checked> Ignore background sounds <span class="caption">(below −45 dBFS)</span></label>
+        <div><div class="caption">Pitch tolerance</div><div class="chips" id="pitchTol"></div></div>
+        <div class="caption">Reference A = 440 Hz. The microphone is asked for raw input: no echo cancelling, noise suppression or gain control.</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card strip-row" aria-label="Click source">
+      <div class="source-head"><div class="chips" id="modes"></div><div id="sourceTools" class="builder-tools"></div></div>
+      <div id="everyPanel"></div>
+      <div id="buildPanel" hidden></div>
+    </section>
+
+  <section class="card strip-row" aria-label="The bar">
+    <div class="bar-strip" id="barStrip"></div>
+    <div class="gauge-line" id="gaugeLine"></div>
+  </section>
+</main>
+
+<script src="tempo-core.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+// ---------------- State (memory only) ----------------
+const S = {
+  bpm: TT.BPM_DEFAULT, meter: TT.meterByKey('4-4'), mode: 'every', everyValue: 'quarter', everyDefault: true,
+  tiles: [], after: [], addTo: 'bar', builderMsg: '',
+  tol: 5, clicksOn: true, ballMoving: true, tunerStill: false, phones: false, pitchTol: 10, gateOn: true,
+  latencyMs: 0,
+  running: false, listening: false, listenStart: 0,
+  bars: [], graded: [], streak: TT.createStreak(), quiet: 0, lastHitFlash: 0, lastBarCount: -1,
+  onsets: [], echoSuspects: new Set(), pitched: [], pitchedInfo: [], counted: new Set(), usedOnsets: new Set(),
+  odo: { trip: 0, total: 0, since: new Date() },
+  display: null, displayT: 0, level: -100,
+  calib: null,
+};
+const A = { ctx: null, bufs: null, out: null, sources: [], timer: null, cycle: null, cursor: null, mic: null, node: null, ring: null, ringFill: 0, sinceYin: 0, det: null };
+
+// ---------------- Glyphs ----------------
+// Notes and rests are drawn as small SVGs (no music font is needed). Height 44, staff middle line at y 26.
+const FLAGS = { 192: 0, 96: 0, 48: 0, 24: 1, 12: 2, 6: 3, 3: 4, 16: 1 };
+function baseOf(units) {
+  if (FLAGS[units] !== undefined) return { base: units, dotted: false };
+  if (units % 3 === 0 && FLAGS[(units / 3) * 2] !== undefined) return { base: (units / 3) * 2, dotted: true };
+  return { base: 48, dotted: false };
+}
+const svgWrap = (w, inner, label) => '<svg class="nv" width="' + w + '" height="44" viewBox="0 0 ' + w + ' 44" role="img" aria-label="' + label + '" fill="currentColor" stroke="currentColor">' + inner + '</svg>';
+function headStem(x, base) {
+  const hollow = base >= 96;
+  let g = '<ellipse cx="' + x + '" cy="32" rx="5.2" ry="3.8" transform="rotate(-20 ' + x + ' 32)" ' + (hollow ? 'fill="none" stroke-width="1.6"' : 'stroke="none"') + '/>';
+  if (base < 192) g += '<line x1="' + (x + 4.6) + '" y1="31" x2="' + (x + 4.6) + '" y2="6" stroke-width="1.4"/>';
+  return g;
+}
+function glyph(units, rest) {
+  const { base, dotted } = baseOf(units);
+  const flags = FLAGS[base];
+  let g = '', w = 22;
+  if (!rest) {
+    g = headStem(8, base);
+    for (let i = 0; i < flags; i++) g += '<path d="M ' + 12.6 + ' ' + (6 + i * 5) + ' q 6 4 4 11" fill="none" stroke-width="1.6"/>';
+    if (flags) w = 24;
+    if (dotted) g += '<circle cx="' + (w - 3) + '" cy="30" r="1.8" stroke="none"/>';
+    if (dotted) w += 4;
+  } else {
+    if (base === 192) g = '<line x1="3" x2="19" y1="14" y2="14" stroke-width="1"/><rect x="6" y="14" width="10" height="5" stroke="none"/>';
+    else if (base === 96) g = '<line x1="3" x2="19" y1="22" y2="22" stroke-width="1"/><rect x="6" y="17" width="10" height="5" stroke="none"/>';
+    else if (base === 48) g = '<path d="M 9 8 L 14 15 L 9 21 L 14 28 Q 7 26 11 34" fill="none" stroke-width="2.2" stroke-linejoin="round"/>';
+    else {
+      const n = flags;
+      g = '<line x1="15" y1="' + 12 + '" x2="' + (11 - n) + '" y2="' + (36) + '" stroke-width="1.4"/>';
+      for (let i = 0; i < n; i++) g += '<circle cx="' + (9 - i * 0.8) + '" cy="' + (14 + i * 6) + '" r="2.4" stroke="none"/><path d="M ' + (9 - i * 0.8) + ' ' + (14 + i * 6) + ' q 3 2 ' + (6 - i * 0.6) + ' -2" fill="none" stroke-width="1.3"/>';
+    }
+    if (dotted) { g += '<circle cx="21" cy="22" r="1.8" stroke="none"/>'; w = 25; }
+  }
+  return svgWrap(w, g, (TT.NOTE_VALUES.find((v) => v.units === units) || { title: TT.fraction(units) }).title + (rest ? ' rest' : ' note'));
+}
+function groupGlyph(id) {
+  const parts = TT.GROUPS.find((x) => x.id === id).parts;
+  const n = parts.length, beams = id === 'beamedSixteenths' ? 2 : 1;
+  const gap = n === 4 ? 11 : 14, w = 10 + gap * (n - 1) + 8;
+  let g = '';
+  for (let i = 0; i < n; i++) g += headStem(6 + i * gap, 48);
+  for (let b = 0; b < beams; b++) g += '<rect x="' + 10.6 + '" y="' + (6 + b * 5) + '" width="' + (gap * (n - 1)) + '" height="3" stroke="none"/>';
+  if (id === 'eighthTriplet') g += '<text x="' + (10.6 + gap) + '" y="4" font-size="9" text-anchor="middle" stroke="none" font-family="system-ui">3</text>';
+  return svgWrap(w, g, TT.GROUPS.find((x) => x.id === id).title);
+}
+function tileGlyph(t) { return t.kind === 'group' ? groupGlyph(t.id) : glyph(TT.valueById(t.id).units, t.kind === 'rest'); }
+function tileTitle(t) { return t.kind === 'group' ? TT.GROUPS.find((g) => g.id === t.id).title : TT.valueById(t.id).title + (t.kind === 'rest' ? ' rest' : ' note'); }
+const meterHTML = (m, cls) => '<span class="meter ' + cls + '" aria-label="' + m.top + ' over ' + m.bottom + '"><span>' + m.top + '</span><span>' + m.bottom + '</span></span>';
+function accHTML(text) { return text.replace(/([♯𝄪])/gu, '<span class="acc-s">$1</span>').replace(/([♭𝄫])/gu, '<span class="acc-f">$1</span>'); }
+
+// ---------------- The pattern ----------------
+// One cycle: a list of bars, each a list of { units, rest }.
+function currentCycle() {
+  if (S.mode === 'every') return [TT.everyClickBar(S.meter, S.everyValue)];
+  return TT.builderBars(S.tiles, S.after, S.meter);
+}
+function cycleTooFast(cycle) {
+  return cycle.some((b) => b.some((e) => !e.rest && TT.isTooFast(S.bpm, S.meter, e.units)));
+}
+const cycleHasNote = (cycle) => cycle.some((b) => b.some((e) => !e.rest));
+
+// ---------------- Audio out ----------------
+function ensureCtx() {
+  if (!A.ctx) {
+    A.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    A.bufs = {};
+    const b = TT.clickBuffers(A.ctx.sampleRate);
+    for (const k of ['normal', 'accent']) {
+      const ab = A.ctx.createBuffer(1, b[k].length, A.ctx.sampleRate);
+      ab.copyToChannel(b[k], 0);
+      A.bufs[k] = ab;
+    }
+    A.out = A.ctx.createGain();
+    A.out.gain.value = S.clicksOn ? 1 : 0;
+    A.out.connect(A.ctx.destination);
+  }
+  if (A.ctx.state === 'suspended') A.ctx.resume();
+  return A.ctx;
+}
+function playClick(t, accent) {
+  const src = A.ctx.createBufferSource();
+  src.buffer = accent ? A.bufs.accent : A.bufs.normal;
+  src.connect(A.out);
+  src.start(t);
+  A.sources.push({ src, t });
+}
+// Start a fresh cycle at time t0 (a change re-anchors: the next click is beat 1 of a new bar).
+function anchor(t0) {
+  const now = A.ctx.currentTime;
+  for (const s of A.sources) if (s.t >= now) { try { s.src.stop(); } catch (e) {} }
+  A.sources = A.sources.filter((s) => s.t < now);
+  for (const b of S.bars) if (b.end > t0) b.void = true;
+  A.cycle = currentCycle();
+  A.cursor = { bar: 0, entry: 0, t: t0, barRec: null };
+}
+let barSerial = 0;
+function schedule() {
+  if (!S.running) return;
+  const horizon = A.ctx.currentTime + 0.25;
+  const cyc = A.cycle;
+  if (!cyc.length) return;
+  const spu = TT.secondsPerUnit(S.bpm, S.meter);
+  while (A.cursor.t < horizon) {
+    const c = A.cursor;
+    const bar = cyc[c.bar];
+    if (c.entry === 0) {
+      // the whole bar is known as it starts: times follow from the units, with no rounding carried over
+      const clicks = [];
+      let u = 0;
+      for (const e of bar) { clicks.push({ t: c.t + u * spu, interval: e.units * spu, rest: e.rest, units: e.units }); u += e.units; }
+      c.barRec = { id: barSerial++, cycleBar: c.bar, start: c.t, end: c.t + u * spu, clicks, graded: false, void: false, hitIdx: new Set() };
+      c.barStart = c.t;
+      S.bars.push(c.barRec);
+    }
+    const e = bar[c.entry];
+    const click = c.barRec.clicks[c.entry];
+    if (!e.rest) playClick(click.t, c.bar === 0 && c.entry === 0);
+    c.entry++;
+    if (c.entry >= bar.length) { c.entry = 0; c.bar = (c.bar + 1) % cyc.length; c.t = c.barRec.end; }
+    else c.t = c.barRec.clicks[c.entry].t;
+  }
+  if (S.bars.length > 64) S.bars.splice(0, S.bars.length - 64);
+}
+function startMetronome() {
+  const cyc = currentCycle();
+  if (!cycleHasNote(cyc)) return;
+  ensureCtx();
+  S.running = true;
+  anchor(A.ctx.currentTime + 0.1);
+  schedule();
+  A.timer = setInterval(schedule, 25);
+  resetGrading();
+  render();
+}
+function stopMetronome() {
+  S.running = false;
+  clearInterval(A.timer);
+  if (A.ctx) { const now = A.ctx.currentTime; for (const s of A.sources) if (s.t >= now) { try { s.src.stop(); } catch (e) {} } }
+  A.sources = [];
+  countNotes(true);
+  render();
+}
+// A change of tempo or pattern while running starts a new bar and the streak again.
+function patternChanged() {
+  if (S.running) { anchor(A.ctx.currentTime + 0.1); schedule(); }
+  S.streak.current = 0;
+  render();
+}
+
+// ---------------- Microphone ----------------
+const WORKLET = `
+class Tap extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Float32Array(1024); this.n = 0; this.start = 0; }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
+    if (this.n === 0) this.start = currentFrame;
+    for (let i = 0; i < ch.length; i++) {
+      this.buf[this.n++] = ch[i];
+      if (this.n === this.buf.length) {
+        this.port.postMessage({ t: this.start / sampleRate, data: this.buf }, [this.buf.buffer]);
+        this.buf = new Float32Array(1024); this.n = 0; this.start = currentFrame + i + 1;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('tap', Tap);`;
+async function startListening() {
+  ensureCtx();
+  try {
+    A.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    S.micError = 'The microphone could not start: ' + e.message;
+    render();
+    return;
+  }
+  if (!A.workletLoaded) {
+    const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
+    try { await A.ctx.audioWorklet.addModule(url); } catch (e) {
+      A.mic.getTracks().forEach((t) => t.stop()); A.mic = null;
+      S.micError = 'The audio processor could not load here: ' + e.message;
+      render();
+      return;
+    }
+    A.workletLoaded = true;
+  }
+  const srcNode = A.ctx.createMediaStreamSource(A.mic);
+  A.node = new AudioWorkletNode(A.ctx, 'tap');
+  const sink = A.ctx.createGain(); sink.gain.value = 0;
+  srcNode.connect(A.node); A.node.connect(sink); sink.connect(A.ctx.destination);
+  A.srcNode = srcNode; A.sink = sink;
+  A.ring = new Float32Array(4096); A.ringFill = 0; A.sinceYin = 0;
+  A.det = TT.createOnsetDetector(A.ctx.sampleRate);
+  A.node.port.onmessage = (ev) => receiveAudio(ev.data.t, ev.data.data);
+  S.listening = true; S.micError = '';
+  // a first latency guess: output latency plus the input track's reported latency; Calibrate measures the loop
+  if (!S.latencyTouched) {
+    const set = A.mic.getAudioTracks()[0].getSettings();
+    S.latencyMs = Math.round(((A.ctx.outputLatency || 0) + (A.ctx.baseLatency || 0) + (set.latency || 0)) * 1000);
+  }
+  resetGrading();
+  render();
+}
+function stopListening() {
+  if (A.mic) for (const t of A.mic.getTracks()) t.stop();
+  if (A.node) { A.node.port.onmessage = null; A.node.disconnect(); A.srcNode.disconnect(); A.sink.disconnect(); }
+  A.mic = null; A.node = null;
+  countNotes(true);
+  S.listening = false; S.display = null;
+  resetGrading();
+  render();
+}
+function resetGrading() {
+  S.listenStart = A.ctx ? A.ctx.currentTime : 0;
+  S.streak.current = 0; S.quiet = 0;
+}
+
+function receiveAudio(t0, data) {
+  const sr = A.ctx.sampleRate;
+  // onsets
+  for (const raw of TT.onsetProcess(A.det, data, t0)) onRawOnset(raw);
+  // ring of the last 4,096 samples for YIN, read every 2,048 new samples
+  const ring = A.ring;
+  if (data.length >= ring.length) ring.set(data.subarray(data.length - ring.length));
+  else { ring.copyWithin(0, data.length); ring.set(data, ring.length - data.length); }
+  A.ringFill = Math.min(ring.length, A.ringFill + data.length);
+  A.sinceYin += data.length;
+  if (A.ringFill === ring.length && A.sinceYin >= 2048) {
+    A.sinceYin = 0;
+    const tEnd = t0 + data.length / sr;
+    onReading(TT.yin(ring, sr), tEnd - ring.length / 2 / sr, ring);
+  }
+}
+
+function onRawOnset(raw) {
+  if (S.calib && S.calib.collecting) { S.calib.detections.push(raw); return; }
+  const t = raw - S.latencyMs / 1000;
+  // speakers with clicks sounding: an onset within 15 ms of a click may be the click's echo; decided once the readings around it exist
+  if (!S.phones && S.clicksOn && S.running) {
+    for (let i = S.bars.length - 1; i >= 0 && i >= S.bars.length - 3; i--) {
+      if (S.bars[i].clicks.some((c) => !c.rest && Math.abs(c.t - t) <= 0.015)) { S.echoSuspects.add(t); break; }
+    }
+  }
+  S.onsets.push(t);
+  if (S.onsets.length > 400) { for (const o of S.onsets.splice(0, 200)) S.echoSuspects.delete(o); }
+}
+// The onsets to time. An echo suspect is the click heard over a held note: the reading after it is the same pitch class as the one
+// before it, and less than 3 dB louder. A new note, a louder re-attack, or a note from silence is kept.
+function isClickEcho(o) {
+  if (!S.echoSuspects.has(o)) return false;
+  // readings are centred in an 85 ms window: the one before must end before the onset, the one after must start past it
+  const before = S.pitchedInfo.filter((p) => p.t >= o - 0.15 && p.t <= o - 0.05).pop();
+  const after = S.pitchedInfo.find((p) => p.t >= o + 0.05 && p.t <= o + 0.15);
+  if (!before || !after) return false;
+  return before.pc === after.pc && after.db - before.db < 3;
+}
+const usableOnsets = () => S.onsets.filter((o) => !isClickEcho(o));
+
+function onReading(r, t, buf) {
+  let sq = 0; for (let i = 0; i < buf.length; i++) sq += buf[i] * buf[i];
+  S.level = 10 * Math.log10(sq / buf.length + 1e-12);
+  if (!r) return; // no pitch: the display holds for 0.75 s
+  if (!TT.gatePasses(r.dbfs, !!S.display, S.gateOn)) { S.display = null; return; }
+  const n = TT.nearest(r.frequency);
+  S.display = { ...r, ...n, t };
+  S.displayT = A.ctx.currentTime;
+  if (r.confidence >= 0.7) {
+    S.pitched.push(t); S.pitchedInfo.push({ t, pc: n.pc, db: r.dbfs });
+    if (S.pitched.length > 600) { S.pitched.splice(0, 300); S.pitchedInfo.splice(0, 300); }
+  }
+}
+
+// ---------------- Grading (every 50 ms) ----------------
+function gradeTick() {
+  if (!A.ctx) return;
+  const now = A.ctx.currentTime;
+  if (S.display && now - S.displayT > 0.75) S.display = null;
+  const grading = S.running && S.listening && !(S.calib && S.calib.collecting);
+  const tooFast = cycleTooFast(currentCycle());
+  if (grading && !tooFast) {
+    for (const bar of S.bars) {
+      if (bar.graded || bar.void) continue;
+      if (bar.start < S.listenStart) { bar.graded = true; continue; }
+      const sounding = bar.clicks.filter((c) => !c.rest);
+      if (!sounding.length) { bar.graded = true; continue; }
+      const last = sounding[sounding.length - 1];
+      if (now < last.t + 0.25 * last.interval + 0.25) break;
+      bar.graded = true;
+      const played = usableOnsets().filter((o) => TT.isPlayed(o, S.pitched));
+      const g = TT.gradeBar(bar, played, S.tol, S.usedOnsets);
+      if (!g) continue;
+      for (const o of g.paired) S.usedOnsets.add(o);
+      bar.clicks.forEach((c, i) => { if (g.hitClicks.includes(c)) bar.hitIdx.add(i); });
+      const pitchedIn = S.pitched.some((p) => p >= bar.start && p < bar.end);
+      const anyOnset = S.onsets.some((o) => o >= bar.start && o < bar.end);
+      S.quiet = pitchedIn && !anyOnset ? S.quiet + 1 : 0;
+      S.graded.push({ offsets: g.offsets, hitCount: g.hitCount, total: g.total, isHit: g.isHit });
+      if (S.graded.length > 16) S.graded.shift();
+      TT.streakRecord(S.streak, g.isHit);
+      if (g.isHit) S.lastHitFlash = now;
+      renderTiming();
+    }
+  }
+  if (grading) countNotes(false);
+}
+// The odometer counts each played onset once, once it has settled (250 ms).
+function countNotes(flush) {
+  if (!A.ctx || !(S.running && S.listening)) return;
+  const now = A.ctx.currentTime;
+  let added = 0;
+  for (const o of usableOnsets()) {
+    if (S.counted.has(o) || o < S.listenStart) continue;
+    if (!flush && o > now - 0.25) continue;
+    if (!TT.isPlayed(o, S.pitched)) continue;
+    S.counted.add(o); added++;
+  }
+  if (added) {
+    S.odo.trip = (S.odo.trip + added) % 1000000;
+    S.odo.total += added;
+    renderOdometer();
+  }
+  if (S.counted.size > 2000) S.counted = new Set([...S.counted].slice(-500));
+}
+
+// ---------------- Rendering ----------------
+function chips(el, items, selected, onPick) {
+  el.innerHTML = '';
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.innerHTML = it.html || it.label;
+    if (it.aria) b.setAttribute('aria-label', it.aria);
+    b.setAttribute('aria-pressed', String(it.value === selected));
+    b.disabled = !!it.disabled;
+    if (it.title) b.title = it.title;
+    b.onclick = () => onPick(it.value);
+    el.appendChild(b);
+  }
+}
+function toggleBtn(el, on, onText, offText) { el.setAttribute('aria-pressed', String(on)); el.textContent = on ? onText : offText; }
+
+function render() {
+  toggleBtn($('btnClicks'), S.clicksOn, 'Clicks on', 'Clicks off');
+  toggleBtn($('btnBall'), S.ballMoving, 'Ball moving', 'Ball still');
+  toggleBtn($('btnTunerStill'), S.tunerStill, 'Tuner still', 'Tuner moving');
+  toggleBtn($('btnPhones'), S.phones, 'Headphones', 'Speakers');
+  $('btnMetro').textContent = S.running ? 'Stop metronome' : 'Start metronome';
+  $('btnMetro').disabled = !cycleHasNote(currentCycle());
+  $('btnListen').textContent = S.listening ? 'Stop listening' : 'Start listening';
+  $('bpm').textContent = S.bpm;
+  $('meterBig').innerHTML = '<span>' + S.meter.top + '</span><span>' + S.meter.bottom + '</span>';
+  $('meterBig').setAttribute('aria-label', S.meter.top + ' over ' + S.meter.bottom);
+  chips($('meters'), TT.METERS.map((m) => ({ value: TT.meterKey(m), html: meterHTML(m, 'small'), aria: m.top + ' over ' + m.bottom })), TT.meterKey(S.meter), setMeter);
+  chips($('hitTol'), TT.HIT_TOLERANCES.map((v) => ({ value: v, label: '±' + v + ' %' })), S.tol, (v) => { S.tol = v; render(); });
+  chips($('pitchTol'), TT.PITCH_TOLERANCES.map((v) => ({ value: v, label: '±' + v + ' cents' })), S.pitchTol, (v) => { S.pitchTol = v; render(); });
+  chips($('modes'), [{ value: 'every', label: 'Every click' }, { value: 'build', label: 'Build a bar' }], S.mode, (v) => { S.mode = v; patternChanged(); });
+  $('latency').value = S.latencyMs;
+  $('latencyText').textContent = S.latencyMs + ' ms';
+  $('gate').checked = S.gateOn;
+  renderSource();
+  renderTiming();
+  renderOdometer();
+  renderStrip();
+}
+
+function renderSource() {
+  $('everyPanel').hidden = S.mode !== 'every';
+  $('buildPanel').hidden = S.mode !== 'build';
+  $('sourceTools').innerHTML = '';
+  if (S.mode === 'every') {
+    const p = $('everyPanel');
+    const reasons = [];
+    let html = '<div class="values">';
+    for (const v of TT.NOTE_VALUES) {
+      const fits = TT.everyClickFits(S.meter, v.id);
+      const fast = TT.isTooFast(S.bpm, S.meter, v.units) && v.id !== S.everyValue;
+      if (fast && fits) reasons.push(v.title);
+      const dis = !fits || fast;
+      html += '<button class="tile" data-v="' + v.id + '" aria-pressed="' + (v.id === S.everyValue) + '"' + (dis ? ' disabled' : '') + ' aria-label="' + v.title + '">' +
+        '<span class="g">' + (v.group === 3 ? groupGlyph('eighthTriplet') : glyph(v.units, false)) + '</span><span class="t">' + v.title + '</span></button>';
+    }
+    html += '</div>';
+    const bar = TT.everyClickBar(S.meter, S.everyValue);
+    const rest = bar.find((e) => e.rest);
+    html += '<div class="why">' + (rest ? 'Then ' + TT.fraction(rest.units) + ' of rest to the end of the bar. ' : '') +
+      (reasons.length ? 'Too fast to time at ' + S.bpm + ' BPM: ' + reasons.join(', ') + '.' : '') + '</div>';
+    p.innerHTML = html;
+    p.querySelectorAll('.tile').forEach((b) => (b.onclick = () => { S.everyValue = b.dataset.v; S.everyDefault = b.dataset.v === TT.defaultValueFor(S.meter); patternChanged(); }));
+    return;
+  }
+  const p = $('buildPanel');
+  const noteTiles = TT.SINGLE_TILES.map((v) => ({ kind: 'note', id: v.id })).concat(TT.GROUPS.map((g) => ({ kind: 'group', id: g.id })));
+  const restTiles = TT.SINGLE_TILES.map((v) => ({ kind: 'rest', id: v.id }));
+  const tileBtn = (t) => {
+    const ok = TT.canAdd(S.tiles, S.after, S.meter, S.bpm, t, S.addTo);
+    return '<button data-k="' + t.kind + '" data-id="' + t.id + '" title="' + tileTitle(t) + (ok.ok ? '' : ': ' + ok.reason) + '" aria-label="' + tileTitle(t) + '"' + (ok.ok ? '' : ' aria-disabled="true" style="opacity:.45"') + '>' + tileGlyph(t) + '</button>';
+  };
+  // the tools sit on the mode line; notes and rests are one row each across the full width
+  const tools = $('sourceTools');
+  tools.innerHTML = '<span class="caption">Add to</span><div class="chips" id="addTo"></div>' +
+    '<select id="presets" aria-label="Presets"><option value="">Presets…</option>' + TT.PRESETS.map((pr, i) => '<option value="' + i + '">' + pr.title + '</option>').join('') + '</select>' +
+    '<button id="undo">Undo</button><button id="clear">Clear</button>';
+  let html = '<div class="tile-row"><div class="tiles-label">Notes</div><div class="tiles">' + noteTiles.map(tileBtn).join('') + '</div></div>';
+  html += '<div class="tile-row"><div class="tiles-label">Rests</div><div class="tiles">' + restTiles.map(tileBtn).join('') + '</div></div>';
+  const cyc = currentCycle();
+  html += '<div class="msg" aria-live="polite">' + (S.builderMsg || (!cycleHasNote(cyc) ? 'Add a note to hear clicks.' : '')) + '</div>';
+  p.innerHTML = html;
+  chips(tools.querySelector('#addTo'), [{ value: 'bar', label: 'Bar' }, { value: 'after', label: 'After the bar' }], S.addTo, (v) => { S.addTo = v; S.builderMsg = ''; renderSource(); });
+  p.querySelectorAll('.tiles button').forEach((b) => (b.onclick = () => addTile({ kind: b.dataset.k, id: b.dataset.id })));
+  tools.querySelector('#presets').onchange = (e) => {
+    if (e.target.value === '') return;
+    S.tiles = TT.presetTiles(TT.PRESETS[+e.target.value], S.meter); S.after = []; S.builderMsg = '';
+    patternChanged();
+  };
+  tools.querySelector('#undo').onclick = () => {
+    if (S.addTo === 'after' && S.after.length) S.after.pop(); else if (S.tiles.length) S.tiles.pop(); else S.after.pop();
+    S.builderMsg = ''; patternChanged();
+  };
+  tools.querySelector('#clear').onclick = () => { S.tiles = []; S.after = []; S.builderMsg = ''; if (S.running) stopMetronome(); patternChanged(); };
+}
+function addTile(t) {
+  const ok = TT.canAdd(S.tiles, S.after, S.meter, S.bpm, t, S.addTo);
+  if (!ok.ok) { S.builderMsg = ok.reason; renderSource(); return; }
+  if (S.addTo === 'after') S.after.push(t); else S.tiles.push(t);
+  S.builderMsg = '';
+  patternChanged();
+}
+function setMeter(key) {
+  const m = TT.meterByKey(key);
+  S.meter = m;
+  // the meter's beat note follows the meter; another value stays unless it no longer fits
+  if (S.everyDefault || !TT.everyClickFits(m, S.everyValue)) { S.everyValue = TT.defaultValueFor(m); S.everyDefault = true; }
+  const before = S.tiles.length;
+  S.tiles = TT.trimToMeter(S.tiles, m);
+  const removed = before - S.tiles.length;
+  if (removed) S.builderMsg = S.tiles.length ? 'Trimmed to ' + m.top + ' over ' + m.bottom + ': ' + removed + ' item' + (removed === 1 ? '' : 's') + ' removed from the end.' : 'Bar cleared: nothing fit ' + m.top + ' over ' + m.bottom + '.';
+  if (!cycleHasNote(currentCycle()) && S.running) stopMetronome();
+  patternChanged();
+}
+
+function renderTiming() {
+  const tooFast = cycleTooFast(currentCycle());
+  const st = TT.timingStats(S.graded);
+  const lines = [];
+  if (S.micError) lines.push('<li class="warn">' + S.micError + '</li>');
+  if (tooFast) lines.push('<li class="warn">Too fast to time</li>');
+  if (S.quiet >= 2) lines.push('<li class="warn">Too quiet to time</li>');
+  if (!S.graded.length) lines.push('<li>' + (S.listening ? 'Play along with the clicks. Where your notes land shows after the first bar.' : 'Start listening to time your notes against the clicks.') + '</li>');
+  for (const l of st.lines) lines.push('<li>' + l + '</li>');
+  if (!S.phones && S.clicksOn && S.listening) lines.push('<li class="caption">Speakers: a new attack within 15 ms of a click over a note still sounding is taken for the click. Headphones avoid that.</li>');
+  $('timingLines').innerHTML = lines.join('');
+  // strip: 16 rows, 25 % early to 25 % late
+  const W = 400, H = 180, x = (p) => 20 + ((p + 25) / 50) * (W - 40);
+  let svg = '<rect x="' + x(-S.tol) + '" y="0" width="' + (x(S.tol) - x(-S.tol)) + '" height="' + (H - 18) + '" fill="var(--good-soft)"/>';
+  svg += '<line x1="' + x(0) + '" x2="' + x(0) + '" y1="0" y2="' + (H - 18) + '" stroke="var(--muted)" stroke-width="1"/>';
+  for (const [p, lbl, anc] of [[-25, '25 % early', 'start'], [0, '0', 'middle'], [25, '25 % late', 'end']]) svg += '<text x="' + x(p) + '" y="' + (H - 4) + '" font-size="11" text-anchor="' + anc + '" fill="var(--muted)">' + lbl + '</text>';
+  const rows = S.graded.slice(-16).reverse();
+  rows.forEach((b, age) => {
+    const y = 6 + age * 10;
+    for (const o of b.offsets) {
+      const c = Math.max(-25, Math.min(25, o));
+      svg += '<circle cx="' + x(c) + '" cy="' + y + '" r="3" fill="' + (Math.abs(o) <= S.tol + 1e-9 ? 'var(--good)' : 'var(--coral)') + '" opacity="' + (1 - (0.7 * age) / 15).toFixed(2) + '"/>';
+    }
+  });
+  $('timingStrip').innerHTML = svg;
+  const s = S.streak;
+  $('streak').innerHTML = s.current > 0 ? '<b id="streakBadge">STREAK!</b><span>' + s.current + ' bar' + (s.current === 1 ? '' : 's') + ' in a row</span><span class="caption">Best ' + s.best + '</span>' : (s.best ? '<span></span><span class="caption">Best ' + s.best + '</span>' : '');
+  if (s.current > 0 && S.lastBarCount !== s.current) { const b = $('streakBadge'); b.classList.add('pop'); setTimeout(() => b && b.classList.remove('pop'), 180); }
+  S.lastBarCount = s.current;
+  $('calibText').textContent = S.calib ? S.calib.text : 'Latency moves your notes earlier by this much before they are timed. Calibrate plays 16 clicks out of the speakers and times them through the microphone.';
+}
+
+function renderOdometer() {
+  const digits = String(S.odo.trip).padStart(6, '0');
+  const dim = 6 - String(S.odo.trip).length;
+  $('wheels').innerHTML = [...digits].map((d, i) => '<span class="wheel' + (i < dim ? ' lead' : '') + '">' + d + '</span>').join('');
+  const since = S.odo.since;
+  $('odoSince').textContent = 'Notes since ' + since.getDate() + ' ' + since.toLocaleString('en-GB', { month: 'short' });
+  $('odoTotal').textContent = 'Total ' + S.odo.total.toLocaleString('en-US') + ' notes in this tab';
+  $('odoSr').textContent = S.odo.trip + ' notes';
+}
+
+function renderStrip() {
+  const cyc = currentCycle();
+  const bu = TT.barUnits(S.meter);
+  let html = '';
+  const entryHTML = (e, key) => '<span class="e' + (e.rest ? ' rest' : '') + (e.auto ? ' auto' : '') + '" data-k="' + key + '">' + glyph(e.units, e.rest) + '</span>';
+  if (S.mode === 'every') {
+    html = '<div class="bar-cell"><div class="lbl">' + meterHTML(S.meter, 'small') + '</div><div class="notes">' + cyc[0].map((e, j) => entryHTML(e, '0-' + j)).join('') + '</div></div>';
+    $('gaugeLine').textContent = 'Every click: ' + cyc[0].filter((e) => !e.rest).length + ' clicks fill the bar.';
+  } else {
+    for (let b = 0; b < TT.MAX_BARS; b++) {
+      const bar = cyc[b] || [];
+      const inner = bar.filter((e) => !e.after).map((e, j) => entryHTML(e, b + '-' + j)).join('');
+      html += '<div class="bar-cell"><div class="lbl">Bar ' + (b + 1) + '</div><div class="notes">' + inner + '</div></div>';
+    }
+    const afterInner = S.after.map((t, j) => '<span class="e rest" data-k="a-' + j + '">' + tileGlyph(t) + '</span>').join('');
+    html += '<div class="bar-cell after"><div class="lbl">After the bar</div><div class="notes">' + (afterInner || '<span class="caption">Empty: bars run back to back</span>') + '</div></div>';
+    const { bars, lastUsed } = TT.splitBars(S.tiles, S.meter);
+    let text;
+    if (!S.tiles.length) text = 'The bar is empty';
+    else if (lastUsed === bu && bars.length >= TT.MAX_BARS) text = 'The bars are full';
+    else if (lastUsed === bu) text = 'Bar ' + (bars.length + 1) + ' of ' + TT.MAX_BARS + ': empty';
+    else text = 'Bar ' + bars.length + ' of ' + TT.MAX_BARS + ': ' + TT.fraction(bu - lastUsed) + ' left';
+    $('gaugeLine').textContent = text + ' · ' + TT.builderItemCount(S.tiles, S.after, S.meter) + ' of ' + TT.MAX_BUILDER_ITEMS + ' items';
+  }
+  $('barStrip').innerHTML = html;
+  renderDots(null);
+}
+
+// ---------------- Live loop: ball, dots, highlight, tuner ----------------
+function currentPosition(now) {
+  for (let i = S.bars.length - 1; i >= 0; i--) {
+    const b = S.bars[i];
+    if (b.void || b.start > now) continue;
+    if (now >= b.end) return null;
+    let j = b.clicks.length - 1;
+    while (j > 0 && b.clicks[j].t > now) j--;
+    return { bar: b, entry: j };
+  }
+  return null;
+}
+let lastDotsKey = '';
+function renderDots(pos) {
+  const cyc = currentCycle();
+  const barEntries = pos ? pos.bar.clicks : (cyc[0] || []).map((e) => ({ rest: e.rest }));
+  const key = (pos ? pos.bar.id + ':' + pos.entry + ':' + pos.bar.hitIdx.size : 'idle') + ':' + barEntries.length;
+  if (key === lastDotsKey) return;
+  lastDotsKey = key;
+  $('dots').innerHTML = barEntries.slice(0, 32).map((c, i) => {
+    let cls = 'dot' + (c.rest ? ' rest' : '');
+    if (pos && pos.bar.hitIdx.has(i)) cls += ' hitbeat';
+    else if (pos && i === pos.entry && !c.rest) cls += ' lit';
+    return '<span class="' + cls + '"></span>';
+  }).join('');
+}
+let lastStripKey = '';
+function liveFrame() {
+  const now = A.ctx ? A.ctx.currentTime : 0;
+  const pos = S.running ? currentPosition(now) : null;
+  // ball: travels across each sounding interval; still: flashes on the click
+  const ball = $('ball');
+  if (pos) {
+    const c = pos.bar.clicks[pos.entry];
+    const frac = Math.min(1, (now - c.t) / c.interval);
+    const lane = ball.parentElement.clientWidth - 18;
+    if (S.ballMoving) {
+      const dir = pos.entry % 2 === 0 ? frac : 1 - frac;
+      ball.style.left = (dir * lane) + 'px';
+      ball.style.bottom = (Math.sin(Math.PI * frac) * 14) + 'px';
+    } else { ball.style.left = (lane / 2) + 'px'; ball.style.bottom = '0px'; }
+    ball.classList.toggle('flash', !c.rest && frac < 0.15);
+  } else ball.classList.remove('flash');
+  renderDots(pos);
+  const hitOn = A.ctx && now - S.lastHitFlash < 0.6 && S.lastHitFlash > 0;
+  $('clicksBox').classList.toggle('hit', !!hitOn);
+  $('clicksCap').textContent = hitOn ? 'Bar hit' : S.listening ? 'Listening for your notes' : 'Start listening to grade the bars';
+  // strip highlight
+  const sk = pos ? pos.bar.cycleBar + '-' + pos.entry : '';
+  if (sk !== lastStripKey) {
+    document.querySelectorAll('.notes .e.now').forEach((e) => e.classList.remove('now'));
+    if (sk) { const el = document.querySelector('.notes .e[data-k="' + sk + '"]'); if (el) el.classList.add('now'); }
+    lastStripKey = sk;
+  }
+  renderTuner();
+  requestAnimationFrame(liveFrame);
+}
+function renderTuner() {
+  const d = S.display;
+  const tuner = $('tuner');
+  const band = S.pitchTol;
+  let inTune = false, cents = 0;
+  if (d) {
+    // in tune: within the pitch tolerance of the reading's own note
+    cents = d.cents;
+    inTune = Math.abs(cents) <= band + 1e-9;
+    const n = TT.spellMidi(d.midi);
+    $('tName').innerHTML = accHTML(n.text) + '<sub>' + n.octave + '</sub>';
+    $('tCents').textContent = inTune ? 'In tune' : S.tunerStill ? '—' : TT.centsText(cents);
+    $('tCents').classList.toggle('ok', inTune);
+  } else {
+    $('tName').textContent = '—';
+    $('tCents').textContent = S.listening ? 'Listening' : 'Start listening to use the tuner';
+    $('tCents').classList.remove('ok');
+  }
+  tuner.classList.toggle('intune', inTune);
+  $('tStillCap').textContent = S.tunerStill ? 'Tuner still: listen for the pitch' : '';
+  $('levelBar').style.width = Math.max(0, Math.min(100, ((S.level + 80) / 80) * 100)) + '%';
+  // gauge: 180 degrees, -50 to +50 cents, band at the pitch tolerance
+  const cx = 150, cy = 150, R = 120;
+  const pt = (c, r) => { const a = Math.PI * (1 - (c + 50) / 100); return [cx + r * Math.cos(a), cy - r * Math.sin(a)]; };
+  const [bx1, by1] = pt(-band, R), [bx2, by2] = pt(band, R);
+  let g = '<path d="M ' + pt(-50, R).join(' ') + ' A ' + R + ' ' + R + ' 0 0 1 ' + pt(50, R).join(' ') + '" fill="none" stroke="var(--line)" stroke-width="14"/>';
+  g += '<path d="M ' + bx1 + ' ' + by1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + bx2 + ' ' + by2 + '" fill="none" stroke="var(--good)" stroke-width="14" opacity=".5"/>';
+  for (const c of [-50, -25, 0, 25, 50]) {
+    const [x1, y1] = pt(c, R - 14), [x2, y2] = pt(c, R + 10), [lx, ly] = pt(c, R + 22);
+    g += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="var(--muted)"/><text x="' + lx + '" y="' + ly + '" font-size="11" text-anchor="middle" fill="var(--muted)">' + (c > 0 ? '+' + c : c < 0 ? '−' + -c : '0') + '</text>';
+  }
+  const needle = d && !S.tunerStill ? Math.max(-50, Math.min(50, cents)) : 0;
+  const [nx, ny] = pt(needle, R - 6);
+  if (!S.tunerStill) g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + nx + '" y2="' + ny + '" stroke="' + (inTune ? 'var(--good)' : d ? (cents < 0 ? 'var(--below)' : 'var(--above)') : 'var(--line)') + '" stroke-width="4" stroke-linecap="round"/>';
+  g += '<circle cx="' + cx + '" cy="' + cy + '" r="7" fill="var(--violet)"/>';
+  $('gauge').innerHTML = g;
+  $('gauge').setAttribute('aria-label', S.tunerStill ? 'Tuning, still' : d ? TT.centsText(cents) : 'No note');
+}
+
+// ---------------- Calibration ----------------
+async function calibrateLoop() {
+  if (S.calib && S.calib.collecting) return;
+  const wasRunning = S.running;
+  if (wasRunning) stopMetronome();
+  if (!S.listening) await startListening();
+  if (!S.listening) return;
+  const t0 = A.ctx.currentTime + 0.5;
+  const times = Array.from({ length: 16 }, (_, i) => t0 + i * 0.5);
+  S.calib = { collecting: true, detections: [], text: 'Calibrating: keep the room quiet; 16 clicks play out of the speakers.' };
+  renderTiming();
+  const g = A.out.gain.value; A.out.gain.value = 1;
+  for (const t of times) playClick(t, false);
+  setTimeout(() => {
+    A.out.gain.value = S.clicksOn ? 1 : g;
+    const res = TT.calibrate(times, S.calib.detections);
+    if (res.ok) { S.latencyMs = res.latencyMs; S.latencyTouched = true; S.calib = { text: 'Measured ' + res.latencyMs + ' ms from ' + res.pairs + ' of 16 clicks.' }; }
+    else S.calib = { text: 'Calibration did not finish: ' + res.reason + '. Latency is unchanged.' };
+    render();
+  }, (0.5 + 16 * 0.5 + 0.7) * 1000);
+}
+
+// ---------------- Events ----------------
+function setBPM(b) { const v = TT.clampBPM(b); if (v === S.bpm) return; S.bpm = v; patternChanged(); }
+$('slower').onclick = () => setBPM(S.bpm - 1);
+$('faster').onclick = () => setBPM(S.bpm + 1);
+(() => {
+  const dial = $('dial');
+  let startX = null, startB = 0;
+  dial.addEventListener('pointerdown', (e) => { if (e.target.tagName === 'BUTTON') return; startX = e.clientX; startB = S.bpm; dial.setPointerCapture(e.pointerId); });
+  dial.addEventListener('pointermove', (e) => { if (startX === null) return; setBPM(startB + Math.round((e.clientX - startX) / 4)); });
+  dial.addEventListener('pointerup', () => { startX = null; });
+})();
+$('btnMetro').onclick = () => (S.running ? stopMetronome() : startMetronome());
+$('btnListen').onclick = () => (S.listening ? stopListening() : startListening());
+$('btnClicks').onclick = () => { S.clicksOn = !S.clicksOn; if (A.out) A.out.gain.value = S.clicksOn ? 1 : 0; render(); };
+$('btnBall').onclick = () => { S.ballMoving = !S.ballMoving; render(); };
+$('btnTunerStill').onclick = () => { S.tunerStill = !S.tunerStill; render(); };
+$('btnPhones').onclick = () => { S.phones = !S.phones; render(); };
+$('btnCalib').onclick = calibrateLoop;
+$('gate').onchange = (e) => { S.gateOn = e.target.checked; };
+$('latency').oninput = (e) => { S.latencyMs = +e.target.value; S.latencyTouched = true; $('latencyText').textContent = S.latencyMs + ' ms'; };
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || ['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+  e.preventDefault();
+  S.running ? stopMetronome() : startMetronome();
+});
+// Odometer reset: hold 1 s; a click says to hold.
+(() => {
+  const b = $('odoReset'), fill = b.querySelector('.fill');
+  let timer = null, startT = 0, raf = null;
+  const cancel = () => { clearTimeout(timer); cancelAnimationFrame(raf); fill.style.width = '0'; timer = null; };
+  b.addEventListener('pointerdown', () => {
+    startT = performance.now();
+    const grow = () => { fill.style.width = Math.min(100, (performance.now() - startT) / 10) + '%'; raf = requestAnimationFrame(grow); };
+    grow();
+    timer = setTimeout(() => { cancel(); S.odo.trip = 0; S.odo.since = new Date(); renderOdometer(); }, 1000);
+  });
+  b.addEventListener('pointerup', () => {
+    if (timer && performance.now() - startT < 1000) { cancel(); $('odoResetText').textContent = 'Hold to reset'; setTimeout(() => ($('odoResetText').textContent = 'Reset'), 2500); }
+  });
+  b.addEventListener('pointerleave', cancel);
+})();
+
+setInterval(gradeTick, 50);
+render();
+requestAnimationFrame(liveFrame);
+</script>
+</body>
+</html>
